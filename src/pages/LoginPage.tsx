@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { getSessionId, setMember, setAdmin } from '@/lib/session';
 import { useI18n } from '@/lib/i18n';
@@ -26,6 +27,14 @@ export default function LoginPage() {
       setAdminExists(!!data);
     });
   }, []);
+
+  // Reset fields when switching modes
+  useEffect(() => {
+    setUsername('');
+    setPassword('');
+    setConfirmPassword('');
+    setPin('');
+  }, [mode]);
 
   const handleVoterLogin = async () => {
     if (!pin.trim()) return;
@@ -82,6 +91,10 @@ export default function LoginPage() {
 
   const handleAdminRegister = async () => {
     if (!username.trim() || !password || !confirmPassword) return;
+    if (password.length < 6) {
+      toast.error(t('password_too_short'));
+      return;
+    }
     if (password !== confirmPassword) {
       toast.error(t('passwords_mismatch'));
       return;
@@ -94,9 +107,12 @@ export default function LoginPage() {
       });
       if (error) throw error;
       if (data) {
-        setAdmin(true, username.trim());
-        toast.success(t('admin_panel'));
-        navigate('/admin');
+        setAdminExists(true);
+        toast.success(t('account_created'));
+        // Clear registration fields, switch to login
+        setUsername('');
+        setPassword('');
+        setConfirmPassword('');
       } else {
         toast.error(t('admin_exists'));
       }
@@ -105,6 +121,94 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // --- Admin login form (reusable) ---
+  const AdminLoginForm = (
+    <div className="space-y-4">
+      <Input
+        placeholder={t('username')}
+        value={username}
+        onChange={(e) => setUsername(e.target.value)}
+      />
+      <Input
+        type="password"
+        placeholder={t('password')}
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && handleAdminLogin()}
+      />
+      <Button className="w-full" onClick={handleAdminLogin} disabled={loading}>
+        {loading ? t('checking') : t('login')}
+      </Button>
+    </div>
+  );
+
+  // --- Admin registration form (reusable) ---
+  const AdminRegisterForm = (
+    <div className="space-y-4">
+      <Input
+        placeholder={t('username')}
+        value={username}
+        onChange={(e) => setUsername(e.target.value)}
+      />
+      <Input
+        type="password"
+        placeholder={t('password')}
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+      />
+      <Input
+        type="password"
+        placeholder={t('confirm_password')}
+        value={confirmPassword}
+        onChange={(e) => setConfirmPassword(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && handleAdminRegister()}
+      />
+      <p className="text-xs text-muted-foreground">{t('password_min_length')}</p>
+      <Button className="w-full" onClick={handleAdminRegister} disabled={loading}>
+        {loading ? t('checking') : t('register')}
+      </Button>
+    </div>
+  );
+
+  // --- Render admin section ---
+  const renderAdminSection = () => {
+    // Still loading admin status
+    if (adminExists === null) {
+      return <p className="text-center text-muted-foreground">{t('loading')}</p>;
+    }
+
+    // Admin already exists — only login
+    if (adminExists) {
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">{t('admin_login')}</CardTitle>
+          </CardHeader>
+          <CardContent>{AdminLoginForm}</CardContent>
+        </Card>
+      );
+    }
+
+    // No admin yet — show both tabs: Login & Register
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">{t('admin')}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="register" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsTrigger value="login">{t('login')}</TabsTrigger>
+              <TabsTrigger value="register">{t('register')}</TabsTrigger>
+            </TabsList>
+            <TabsContent value="login">{AdminLoginForm}</TabsContent>
+            <TabsContent value="register">{AdminRegisterForm}</TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+    );
   };
 
   return (
@@ -137,18 +241,12 @@ export default function LoginPage() {
           </Button>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">
-              {mode === 'voter'
-                ? t('enter_pin')
-                : adminExists === false
-                ? t('register_admin')
-                : t('admin_login')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {mode === 'voter' ? (
+        {mode === 'voter' ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">{t('enter_pin')}</CardTitle>
+            </CardHeader>
+            <CardContent>
               <div className="space-y-4">
                 <Input
                   placeholder={t('enter_pin')}
@@ -162,51 +260,11 @@ export default function LoginPage() {
                   {loading ? t('checking') : t('login')}
                 </Button>
               </div>
-            ) : adminExists === false ? (
-              <div className="space-y-4">
-                <Input
-                  placeholder={t('username')}
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                />
-                <Input
-                  type="password"
-                  placeholder={t('password')}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-                <Input
-                  type="password"
-                  placeholder={t('confirm_password')}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAdminRegister()}
-                />
-                <Button className="w-full" onClick={handleAdminRegister} disabled={loading}>
-                  {loading ? t('checking') : t('register_admin')}
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <Input
-                  placeholder={t('username')}
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                />
-                <Input
-                  type="password"
-                  placeholder={t('password')}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAdminLogin()}
-                />
-                <Button className="w-full" onClick={handleAdminLogin} disabled={loading}>
-                  {loading ? t('checking') : t('login')}
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ) : (
+          renderAdminSection()
+        )}
       </div>
     </div>
   );
