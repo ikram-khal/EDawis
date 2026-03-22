@@ -105,6 +105,10 @@ const translations = {
   result_label: { qq: 'Нәтийже', ru: 'Результат' },
   report_attendees_count: { qq: 'Қатнасыўшылар саны', ru: 'Количество присутствующих' },
   control_panel: { qq: 'Басқарыў панели', ru: 'Панель управления' },
+  register: { qq: 'Дизимнен өтиў', ru: 'Регистрация' },
+  account_created: { qq: 'Аккаунт жаратылды! Кириң.', ru: 'Аккаунт создан! Войдите.' },
+  password_too_short: { qq: 'Пароль кеминде 6 символ болыўы керек', ru: 'Пароль должен быть не менее 6 символов' },
+  password_min_length: { qq: 'Пароль кеминде 6 символ', ru: 'Минимум 6 символов' },
 } as const;
 
 type TranslationKey = keyof typeof translations;
